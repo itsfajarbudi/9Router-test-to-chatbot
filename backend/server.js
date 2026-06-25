@@ -87,7 +87,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     });
 
     const geminiModel = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-pro-latest",
       systemInstruction: systemInstruction.trim() || undefined
     });
 
@@ -118,11 +118,10 @@ app.post('/v1/chat/completions', async (req, res) => {
         const completionTokens = usage.candidatesTokenCount || 0;
         const totalTokens = usage.totalTokenCount || 0;
         
-        // Cost estimation for Gemini 1.5 Flash: $0.075 / 1M input, $0.30 / 1M output
-        const estimatedCost = (promptTokens / 1000000 * 0.075) + (completionTokens / 1000000 * 0.3);
+        const estimatedCost = (promptTokens / 1000000 * 3.50) + (completionTokens / 1000000 * 10.50);
 
         await supabase.from('api_logs').insert([{
-          model_name: 'gemini-1.5-flash',
+          model_name: 'gemini-1.5-pro',
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           total_tokens: totalTokens,
