@@ -169,6 +169,11 @@ const ApiKeysView = ({ apiKeys, setApiKeys }) => (
     <div className="view-header">
       <h2>Provider API Keys</h2>
       <p>Manage your keys securely. 9Router uses these to forward your requests.</p>
+      
+      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '8px', color: '#60a5fa' }}>
+        <strong>Important for Online Deployment (Vercel):</strong><br/>
+        Because Vercel is a serverless platform, saving keys here will only work for local testing. To apply your API key to your live online backend, please copy and paste your Gemini API Key into your <strong>Vercel Project Settings &gt; Environment Variables</strong> under the name <code>GEMINI_API_KEY</code>.
+      </div>
     </div>
     <div className="keys-grid">
       {AI_MODELS.map(model => (
@@ -187,7 +192,9 @@ const ApiKeysView = ({ apiKeys, setApiKeys }) => (
         </div>
       ))}
     </div>
-    <button className="save-btn"><Save size={18} /> Save Configuration</button>
+    <button className="save-btn" onClick={() => alert('For local testing, API keys are saved temporarily. For your live Vercel server, please paste them in Vercel Settings as instructed above.')}>
+      <Save size={18} /> Save Configuration
+    </button>
   </div>
 );
 
@@ -322,7 +329,7 @@ const ChatbotView = () => {
     setIsTyping(true);
 
     try {
-      const response = await fetch('http://localhost:8080/v1/chat/completions', {
+      const response = await fetch('https://9-router-test-to-chatbot.vercel.app/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
