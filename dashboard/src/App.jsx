@@ -16,6 +16,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line
 } from 'recharts';
 import './App.css';
+import { supabase } from './supabaseClient';
 
 const AI_MODELS = [
   { id: 'openai', name: 'OpenAI GPT-4o', color: '#10b981' },
@@ -418,6 +419,69 @@ const ChatbotView = () => {
   );
 };
 
+// --- Login Component ---
+const LoginView = ({ onLogin }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      if (isRegistering) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert('Check your email for the confirmation link!');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        onLogin();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <div className="login-header">
+          <div className="logo-icon-bg">
+            <Zap className="logo-icon" size={32} color="#ffffff" />
+          </div>
+          <h2>9Router Secure Access</h2>
+          <p>Login to manage your AI API Proxy</p>
+        </div>
+        <form onSubmit={handleSubmit} className="login-form">
+          {error && <div className="login-error">{error}</div>}
+          <div className="form-group">
+            <label>Email Address</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="admin@domain.com" />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
+          </div>
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? 'Authenticating...' : (isRegistering ? 'Sign Up' : 'Secure Login')}
+          </button>
+        </form>
+        <div className="login-footer">
+          <button type="button" className="text-btn" onClick={() => setIsRegistering(!isRegistering)}>
+            {isRegistering ? 'Already have an account? Login' : 'Need an account? Sign up'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App Component ---
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -427,12 +491,30 @@ function App() {
   const [totalCost, setTotalCost] = useState(14.50); // USD
   const [apiKeys, setApiKeys] = useState({});
   const [routingStrategy, setRoutingStrategy] = useState('cost');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+      setIsCheckingAuth(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Simulator Effect
   useEffect(() => {
     const interval = setInterval(() => {
-      const randomAI = AI_MODELS[Math.floor(Math.random() * AI_MODELS.length)];
-      setActiveNode(randomAI.id);
+      // Hanya Gemini yang aktif karena yang lain belum dikonfigurasi
+      const geminiAI = AI_MODELS.find(m => m.id === 'gemini');
+      setActiveNode(geminiAI.id);
 
       const tokensUsed = Math.floor(Math.random() * 800) + 50;
       const latency = Math.floor(Math.random() * 400) + 100;
@@ -444,12 +526,12 @@ function App() {
       const logEntry = {
         id: Date.now(),
         time: new Date().toLocaleTimeString(),
-        model: randomAI.name,
-        color: randomAI.color,
+        model: geminiAI.name,
+        color: geminiAI.color,
         tokens: tokensUsed,
         latency: latency,
         status: status,
-        payload: `{"prompt": "Hello world from ${randomAI.name}..."}`
+        payload: `{"prompt": "Hello world from ${geminiAI.name}..."}`
       };
 
       setHistory(prev => [logEntry, ...prev].slice(0, 50));
@@ -460,6 +542,14 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  if (isCheckingAuth) {
+    return <div className="app-container-full" style={{justifyContent: 'center', alignItems: 'center'}}><h2>Loading Secure Environment...</h2></div>;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="app-container-full">
       <Sidebar activeView={activeView} setActiveView={setActiveView} />
@@ -467,6 +557,7 @@ function App() {
         <header className="top-header">
           <h1>{activeView.replace('_', ' ').toUpperCase()}</h1>
           <div className="user-profile">
+            <button onClick={() => supabase.auth.signOut()} className="save-btn" style={{marginRight: '1rem', backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444'}}>Logout</button>
             <div className="avatar">AD</div>
             <span>Admin Dashboard</span>
           </div>
