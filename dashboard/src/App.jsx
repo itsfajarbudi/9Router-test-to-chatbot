@@ -166,8 +166,8 @@ const DashboardView = ({ totalTokens, totalCost, activeNode }) => (
         <h3>{totalTokens.toLocaleString()}</h3>
       </div>
       <div className="metric-box">
-        <p>Estimated Cost Savings</p>
-        <h3 className="success">${totalCost.toFixed(2)}</h3>
+        <p>Estimated Cost</p>
+        <h3 className="success">${totalCost.toFixed(6)}</h3>
       </div>
       <div className="metric-box">
         <p>Active Model (Ping)</p>
@@ -502,7 +502,7 @@ const LoginView = ({ onLogin }) => {
 // --- Main App Component ---
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
-  const [activeNode, setActiveNode] = useState(null);
+  const [activeNode, setActiveNode] = useState('gemini'); // Set Gemini as default active root
   const [history, setHistory] = useState([]);
   const [totalTokens, setTotalTokens] = useState(0);
   const [totalCost, setTotalCost] = useState(0); // USD
@@ -567,9 +567,8 @@ function App() {
         const newLog = payload.new;
         const geminiAI = AI_MODELS.find(m => m.id === 'gemini');
         
-        // Trigger visual routing animation
+        // Trigger visual routing animation (Gemini always active)
         setActiveNode('gemini');
-        setTimeout(() => setActiveNode(null), 1500);
 
         setTotalTokens(prev => prev + (newLog.total_tokens || 0));
         setTotalCost(prev => prev + (newLog.estimated_cost || 0));
