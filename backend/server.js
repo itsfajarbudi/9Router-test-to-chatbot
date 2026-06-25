@@ -70,8 +70,6 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // Translate OpenAI messages array to Gemini format
-    let chatHistory = [];
     let systemInstruction = "";
     let lastUserMessage = "";
 
@@ -79,12 +77,21 @@ app.post('/v1/chat/completions', async (req, res) => {
       if (msg.role === 'system') {
         systemInstruction += msg.content + " ";
       } else if (msg.role === 'user') {
-        chatHistory.push({ role: 'user', parts: [{ text: msg.content }] });
         lastUserMessage = msg.content;
-      } else if (msg.role === 'assistant') {
-        chatHistory.push({ role: 'model', parts: [{ text: msg.content }] });
       }
     });
+
+    let chatHistory = messages
+      .filter(m => m.role !== 'system')
+      .map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }]
+      }));
+
+    // Gemini requires the first message in history to be from the 'user'
+    while (chatHistory.length > 0 && chatHistory[0].role !== 'user') {
+      chatHistory.shift();
+    }
 
     const geminiModel = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
