@@ -1,9 +1,21 @@
 const express = require('express');
 const cors = require('cors');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
+
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// Initialize Supabase Client
+let supabase;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('[9Router] Supabase Analytics Tracking Enabled.');
+}
 
 const allowedOrigins = [
   'https://itsfajarbudi.github.io',
@@ -75,7 +87,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     });
 
     const geminiModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       systemInstruction: systemInstruction.trim() || undefined
     });
 
@@ -91,10 +103,39 @@ app.post('/v1/chat/completions', async (req, res) => {
       }
     });
 
+    const startTime = Date.now();
     const result = await chat.sendMessage(lastUserMessage);
     const aiReply = result.response.text();
+    const latency = Date.now() - startTime;
 
     console.log(`[9Router] Successfully received response from Gemini.`);
+    
+    // Log usage to Supabase
+    if (supabase) {
+      try {
+        const usage = result.response.usageMetadata || {};
+        const promptTokens = usage.promptTokenCount || 0;
+        const completionTokens = usage.candidatesTokenCount || 0;
+        const totalTokens = usage.totalTokenCount || 0;
+        
+        // Cost estimation for Gemini 1.5 Flash: $0.075 / 1M input, $0.30 / 1M output
+        const estimatedCost = (promptTokens / 1000000 * 0.075) + (completionTokens / 1000000 * 0.3);
+
+        await supabase.from('api_logs').insert([{
+          model_name: 'gemini-1.5-flash',
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
+          estimated_cost: estimatedCost,
+          latency_ms: latency,
+          status_code: 200,
+          payload: lastUserMessage
+        }]);
+        console.log(`[9Router] Logged usage: ${totalTokens} tokens, Cost: $${estimatedCost.toFixed(6)}`);
+      } catch (logErr) {
+        console.error(`[9Router] Failed to log to Supabase:`, logErr);
+      }
+    }
     
     // Pass the response back to the client in OpenAI format
     res.json({

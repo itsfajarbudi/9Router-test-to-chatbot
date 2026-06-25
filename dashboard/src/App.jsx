@@ -504,8 +504,8 @@ function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [activeNode, setActiveNode] = useState(null);
   const [history, setHistory] = useState([]);
-  const [totalTokens, setTotalTokens] = useState(1245000);
-  const [totalCost, setTotalCost] = useState(14.50); // USD
+  const [totalTokens, setTotalTokens] = useState(0);
+  const [totalCost, setTotalCost] = useState(0); // USD
   const [apiKeys, setApiKeys] = useState({});
   const [routingStrategy, setRoutingStrategy] = useState('cost');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -526,38 +526,73 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Simulator Effect
+  // Real-time Supabase Fetching and Subscription
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Hanya Gemini yang aktif karena yang lain belum dikonfigurasi
-      const geminiAI = AI_MODELS.find(m => m.id === 'gemini');
-      setActiveNode(geminiAI.id);
+    if (!isAuthenticated) return;
 
-      const tokensUsed = Math.floor(Math.random() * 800) + 50;
-      const latency = Math.floor(Math.random() * 400) + 100;
-      const status = Math.random() > 0.95 ? 500 : 200; // 5% chance of error
+    const fetchLogs = async () => {
+      // 1. Get sum of all time
+      const { data: allData } = await supabase.from('api_logs').select('total_tokens, estimated_cost');
+      if (allData) {
+        const sumTokens = allData.reduce((acc, curr) => acc + (curr.total_tokens || 0), 0);
+        const sumCost = allData.reduce((acc, curr) => acc + (curr.estimated_cost || 0), 0);
+        setTotalTokens(sumTokens);
+        setTotalCost(sumCost);
+      }
 
-      setTotalTokens(prev => prev + tokensUsed);
-      setTotalCost(prev => prev + (tokensUsed * 0.00002));
+      // 2. Get last 50 for history table
+      const { data } = await supabase.from('api_logs').select('*').order('created_at', { ascending: false }).limit(50);
+      if (data) {
+        const geminiAI = AI_MODELS.find(m => m.id === 'gemini');
+        const formattedLogs = data.map(log => ({
+          id: log.id,
+          time: new Date(log.created_at).toLocaleTimeString(),
+          model: log.model_name || 'Gemini',
+          color: geminiAI?.color || '#3b82f6',
+          tokens: log.total_tokens,
+          latency: log.latency_ms,
+          status: log.status_code,
+          payload: log.payload
+        }));
+        setHistory(formattedLogs);
+      }
+    };
 
-      const logEntry = {
-        id: Date.now(),
-        time: new Date().toLocaleTimeString(),
-        model: geminiAI.name,
-        color: geminiAI.color,
-        tokens: tokensUsed,
-        latency: latency,
-        status: status,
-        payload: `{"prompt": "Hello world from ${geminiAI.name}..."}`
-      };
+    fetchLogs();
 
-      setHistory(prev => [logEntry, ...prev].slice(0, 50));
+    // Subscribe to new inserts
+    const subscription = supabase
+      .channel('api_logs_changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'api_logs' }, payload => {
+        const newLog = payload.new;
+        const geminiAI = AI_MODELS.find(m => m.id === 'gemini');
+        
+        // Trigger visual routing animation
+        setActiveNode('gemini');
+        setTimeout(() => setActiveNode(null), 1500);
 
-      setTimeout(() => setActiveNode(null), 1500);
-    }, 2500);
+        setTotalTokens(prev => prev + (newLog.total_tokens || 0));
+        setTotalCost(prev => prev + (newLog.estimated_cost || 0));
 
-    return () => clearInterval(interval);
-  }, []);
+        const logEntry = {
+          id: newLog.id,
+          time: new Date(newLog.created_at).toLocaleTimeString(),
+          model: newLog.model_name,
+          color: geminiAI?.color || '#3b82f6',
+          tokens: newLog.total_tokens,
+          latency: newLog.latency_ms,
+          status: newLog.status_code,
+          payload: newLog.payload
+        };
+
+        setHistory(prev => [logEntry, ...prev].slice(0, 50));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [isAuthenticated]);
 
   if (isCheckingAuth) {
     return <div className="app-container-full" style={{justifyContent: 'center', alignItems: 'center'}}><h2>Loading Secure Environment...</h2></div>;
