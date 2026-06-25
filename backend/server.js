@@ -47,7 +47,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     });
 
     const geminiModel = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: systemInstruction.trim() || undefined
     });
 
