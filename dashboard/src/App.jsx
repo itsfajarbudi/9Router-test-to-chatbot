@@ -99,25 +99,31 @@ const RadialGraph = ({ activeNode }) => {
           const y = centerY + radius * Math.sin(angle);
           const isActive = activeNode === model.id;
 
+          // Calculate curved path (Quadratic Bezier)
+          const dx = x - centerX;
+          const dy = y - centerY;
+          const curveDirection = index % 2 === 0 ? 1 : -1;
+          const cpX = centerX + dx / 2 - dy * 0.25 * curveDirection;
+          const cpY = centerY + dy / 2 + dx * 0.25 * curveDirection;
+          const pathD = `M ${centerX} ${centerY} Q ${cpX} ${cpY} ${x} ${y}`;
+
           return (
             <g key={`line-${model.id}`}>
-              <line x1={centerX} y1={centerY} x2={x} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="2" />
+              <path d={pathD} stroke="rgba(255,255,255,0.05)" strokeWidth="2" fill="none" />
               {isActive && (
                 <>
                   {/* Solid glowing track */}
-                  <line x1={centerX} y1={centerY} x2={x} y2={y} stroke={model.color} strokeWidth="2" filter="url(#glow)" className="pulse-icon" />
+                  <path d={pathD} stroke={model.color} strokeWidth="2" filter="url(#glow)" className="pulse-icon" fill="none" />
                   
                   {/* Glowing core particle */}
                   <circle r="5" fill="#ffffff" filter="url(#glow)">
-                    <animate attributeName="cx" values={`${centerX};${x}`} dur="1s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
-                    <animate attributeName="cy" values={`${centerY};${y}`} dur="1s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
+                    <animateMotion dur="1s" repeatCount="indefinite" path={pathD} />
                     <animate attributeName="opacity" values="0;1;0" dur="1s" repeatCount="indefinite" />
                   </circle>
                   
                   {/* Trailing colored particle */}
                   <circle r="3" fill={model.color} filter="url(#glow)">
-                    <animate attributeName="cx" values={`${centerX};${x}`} dur="1s" begin="0.2s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
-                    <animate attributeName="cy" values={`${centerY};${y}`} dur="1s" begin="0.2s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
+                    <animateMotion dur="1s" begin="0.2s" repeatCount="indefinite" path={pathD} />
                     <animate attributeName="opacity" values="0;1;0" dur="1s" begin="0.2s" repeatCount="indefinite" />
                   </circle>
                 </>
