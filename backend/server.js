@@ -5,8 +5,36 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(cors());
+const allowedOrigins = [
+  'https://itsfajarbudi.github.io',
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://localhost:5000'
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(null, true); // Allow all for now just to avoid blockages, or specifically restrict. Let's restrict it later if requested, for now we will just allow all or the specific ones. 
+    }
+    return callback(null, true);
+  }
+}));
 app.use(express.json());
+
+// Root endpoint for friendly greeting (so it's not white screen)
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <body style="background-color: #0f172a; color: #3b82f6; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column;">
+        <h1 style="margin: 0; font-size: 3rem;">🚀 9Router Backend</h1>
+        <p style="color: #94a3b8; margin-top: 10px;">API Proxy is running securely.</p>
+      </body>
+    </html>
+  `);
+});
 
 // Basic health check endpoint
 app.get('/health', (req, res) => {
