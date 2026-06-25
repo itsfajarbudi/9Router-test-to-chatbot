@@ -81,16 +81,25 @@ app.post('/v1/chat/completions', async (req, res) => {
       }
     });
 
-    let chatHistory = messages
+    let rawHistory = messages
       .filter(m => m.role !== 'system')
       .map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }]
       }));
 
-    // Gemini requires the first message in history to be from the 'user'
-    while (chatHistory.length > 0 && chatHistory[0].role !== 'user') {
-      chatHistory.shift();
+    // Google Gemini Strict Compliance: History MUST start with 'user' and MUST strictly alternate.
+    let chatHistory = [];
+    let expectedRole = 'user';
+
+    for (const msg of rawHistory) {
+      if (msg.role === expectedRole) {
+        chatHistory.push(msg);
+        expectedRole = expectedRole === 'user' ? 'model' : 'user';
+      } else if (chatHistory.length > 0) {
+        // If sequence breaks (e.g. two 'user' in a row), merge them into the previous message
+        chatHistory[chatHistory.length - 1].parts[0].text += "\n\n" + msg.parts[0].text;
+      }
     }
 
     const geminiModel = genAI.getGenerativeModel({
