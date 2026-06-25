@@ -87,7 +87,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     });
 
     const geminiModel = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro-latest",
+      model: "gemini-2.5-flash",
       systemInstruction: systemInstruction.trim() || undefined
     });
 
@@ -121,7 +121,7 @@ app.post('/v1/chat/completions', async (req, res) => {
         const estimatedCost = (promptTokens / 1000000 * 3.50) + (completionTokens / 1000000 * 10.50);
 
         await supabase.from('api_logs').insert([{
-          model_name: 'gemini-1.5-pro',
+          model_name: 'gemini-2.5-flash',
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           total_tokens: totalTokens,
