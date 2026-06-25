@@ -103,13 +103,24 @@ const RadialGraph = ({ activeNode }) => {
             <g key={`line-${model.id}`}>
               <line x1={centerX} y1={centerY} x2={x} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="2" />
               {isActive && (
-                <line x1={centerX} y1={centerY} x2={x} y2={y} stroke={model.color} strokeWidth="3" filter="url(#glow)" className="energy-line" />
-              )}
-              {isActive && (
-                <circle cx={centerX} cy={centerY} r="4" fill={model.color} filter="url(#glow)">
-                  <animate attributeName="cx" values={`${centerX};${x}`} dur="0.8s" repeatCount="indefinite" />
-                  <animate attributeName="cy" values={`${centerY};${y}`} dur="0.8s" repeatCount="indefinite" />
-                </circle>
+                <>
+                  {/* Solid glowing track */}
+                  <line x1={centerX} y1={centerY} x2={x} y2={y} stroke={model.color} strokeWidth="2" filter="url(#glow)" className="pulse-icon" />
+                  
+                  {/* Glowing core particle */}
+                  <circle r="5" fill="#ffffff" filter="url(#glow)">
+                    <animate attributeName="cx" values={`${centerX};${x}`} dur="1s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
+                    <animate attributeName="cy" values={`${centerY};${y}`} dur="1s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
+                    <animate attributeName="opacity" values="0;1;0" dur="1s" repeatCount="indefinite" />
+                  </circle>
+                  
+                  {/* Trailing colored particle */}
+                  <circle r="3" fill={model.color} filter="url(#glow)">
+                    <animate attributeName="cx" values={`${centerX};${x}`} dur="1s" begin="0.2s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
+                    <animate attributeName="cy" values={`${centerY};${y}`} dur="1s" begin="0.2s" repeatCount="indefinite" keyTimes="0; 1" keySplines="0.4 0 0.2 1" calcMode="spline" />
+                    <animate attributeName="opacity" values="0;1;0" dur="1s" begin="0.2s" repeatCount="indefinite" />
+                  </circle>
+                </>
               )}
             </g>
           );
