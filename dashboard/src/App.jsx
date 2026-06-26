@@ -42,15 +42,31 @@ const MOCK_CHART_DATA = [
   { name: 'Sun', openai: 3490, gemini: 4300, claude: 2100 },
 ];
 
+// --- Naralink Logo Component ---
+const NaralinkLogo = ({ scale = 1, forceWhiteText = false, showSubtitle = true }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', transform: `scale(${scale})`, transformOrigin: 'left center', margin: '10px 0' }}>
+    <svg width="120" height="30" viewBox="0 0 120 30" style={{ position: 'absolute', top: -10, left: 10 }}>
+      <path d="M 10,25 Q 60,-5 110,20" fill="none" stroke="#4ebaff" strokeWidth="4" strokeLinecap="round" />
+      <path d="M 20,28 Q 65,5 105,25" fill="none" stroke="#25a5f7" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+    <div style={{ display: 'flex', alignItems: 'baseline', fontFamily: 'sans-serif', fontWeight: 800, fontSize: '28px', letterSpacing: '-1px' }}>
+      <span style={{ color: '#4ebaff' }}>nara</span>
+      <span style={{ color: forceWhiteText ? '#ffffff' : '#111827' }}>link</span>
+    </div>
+    {showSubtitle && (
+      <div style={{ color: '#4ebaff', fontSize: '10px', fontWeight: 600, marginTop: '-5px', alignSelf: 'flex-end', paddingRight: '0px' }}>
+        Digital Solution
+      </div>
+    )}
+  </div>
+);
+
 // --- Sub-Components Moved Outside to Prevent Re-mounting (Flickering) ---
 
 const Sidebar = ({ activeView, setActiveView }) => (
   <aside className="sidebar">
-    <div className="sidebar-logo">
-      <div className="logo-icon-bg">
-        <Zap className="logo-icon" size={24} color="#ffffff" />
-      </div>
-      <h2>9Router</h2>
+    <div className="sidebar-logo" style={{ marginBottom: '20px' }}>
+      <NaralinkLogo scale={1} forceWhiteText={true} />
     </div>
     <nav className="sidebar-nav">
       <button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>
@@ -546,11 +562,10 @@ const LoginView = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <div className="login-header">
-          <div className="logo-icon-bg">
-            <Zap className="logo-icon" size={32} color="#ffffff" />
+        <div className="login-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <NaralinkLogo scale={1.2} forceWhiteText={true} />
           </div>
-          <h2>9Router Secure Access</h2>
           <p>Login to manage your AI API Proxy</p>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
