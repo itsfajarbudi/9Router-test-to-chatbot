@@ -238,8 +238,8 @@ const PROVIDERS = {
   },
 
   qwen: async ({ apiKey, messages, temperature }) => {
-    // Alibaba DashScope is OpenAI-compatible
-    const openai = new OpenAI({ apiKey, baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1' });
+    // Alibaba DashScope is OpenAI-compatible (using international endpoint)
+    const openai = new OpenAI({ apiKey, baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1' });
     const qwenMessages = messages.map(msg => ({
       role: msg.role === 'model' ? 'assistant' : msg.role,
       content: msg.content
