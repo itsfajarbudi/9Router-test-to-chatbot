@@ -626,10 +626,16 @@ function App() {
       .channel('api_logs_changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'api_logs' }, payload => {
         const newLog = payload.new;
-        const geminiAI = AI_MODELS.find(m => m.id === 'gemini');
         
-        // Trigger visual routing animation (Gemini always active)
-        setActiveNode('gemini');
+        // Map DB model_name back to AI_MODELS id
+        let matchedNodeId = 'gemini';
+        if (newLog.model_name && newLog.model_name.includes('claude')) matchedNodeId = 'claude';
+        else if (newLog.model_name && newLog.model_name.includes('gemini')) matchedNodeId = 'gemini';
+        
+        const aiModel = AI_MODELS.find(m => m.id === matchedNodeId);
+        
+        // Trigger visual routing animation
+        setActiveNode(matchedNodeId);
 
         setTotalTokens(prev => prev + (newLog.total_tokens || 0));
         setTotalCost(prev => prev + (newLog.estimated_cost || 0));
@@ -638,7 +644,7 @@ function App() {
           id: newLog.id,
           time: new Date(newLog.created_at).toLocaleTimeString(),
           model: newLog.model_name,
-          color: geminiAI?.color || '#3b82f6',
+          color: aiModel?.color || '#3b82f6',
           tokens: newLog.total_tokens,
           latency: newLog.latency_ms,
           status: newLog.status_code,
