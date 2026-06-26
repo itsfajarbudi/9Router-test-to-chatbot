@@ -235,6 +235,34 @@ const PROVIDERS = {
       estimatedCost: (pT / 1000000 * 0.14) + (cT / 1000000 * 0.28),
       usedModelName
     };
+  },
+
+  qwen: async ({ apiKey, messages, temperature }) => {
+    // Alibaba DashScope is OpenAI-compatible
+    const openai = new OpenAI({ apiKey, baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1' });
+    const qwenMessages = messages.map(msg => ({
+      role: msg.role === 'model' ? 'assistant' : msg.role,
+      content: msg.content
+    }));
+
+    const usedModelName = "qwen-max";
+    const response = await openai.chat.completions.create({
+      messages: qwenMessages,
+      model: usedModelName,
+      temperature: temperature || 0.7,
+    });
+
+    const pT = response.usage?.prompt_tokens || 0;
+    const cT = response.usage?.completion_tokens || 0;
+
+    return {
+      aiReply: response.choices[0]?.message?.content || "",
+      promptTokens: pT,
+      completionTokens: cT,
+      totalTokens: response.usage?.total_tokens || 0,
+      estimatedCost: (pT / 1000000 * 1.50) + (cT / 1000000 * 4.50), // Approx cost for Qwen-Max
+      usedModelName
+    };
   }
 };
 

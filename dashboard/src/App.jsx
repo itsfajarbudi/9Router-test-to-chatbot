@@ -14,7 +14,8 @@ import {
   BrainCircuit,
   Sparkles,
   Cpu,
-  Atom
+  Atom,
+  Fingerprint
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line
@@ -27,7 +28,8 @@ const AI_MODELS = [
   { id: 'gemini', name: 'Gemini 1.5 Flash', color: '#3b82f6', Icon: Sparkles },
   { id: 'claude', name: 'Claude 3.5 Sonnet', color: '#f97316', Icon: Cpu },
   { id: 'groq', name: 'Groq (Llama 3.1)', color: '#f5333f', Icon: Zap },
-  { id: 'deepseek', name: 'DeepSeek (V3)', color: '#4d6bfe', Icon: Atom }
+  { id: 'deepseek', name: 'DeepSeek (V3)', color: '#4d6bfe', Icon: Atom },
+  { id: 'qwen', name: 'Qwen Max', color: '#06b6d4', Icon: Fingerprint }
 ];
 
 const MOCK_CHART_DATA = [
@@ -419,10 +421,12 @@ const ChatbotView = () => {
       else if (data.model && data.model.includes('llama')) respondedModelId = 'groq';
       else if (data.model && data.model.includes('gpt')) respondedModelId = 'openai';
       else if (data.model && data.model.includes('deepseek')) respondedModelId = 'deepseek';
+      else if (data.model && data.model.includes('qwen')) respondedModelId = 'qwen';
       else if (selectedModel === 'claude') respondedModelId = 'claude';
       else if (selectedModel === 'groq') respondedModelId = 'groq';
       else if (selectedModel === 'openai') respondedModelId = 'openai';
       else if (selectedModel === 'deepseek') respondedModelId = 'deepseek';
+      else if (selectedModel === 'qwen') respondedModelId = 'qwen';
 
       const aiMsg = { 
         id: Date.now() + 1, 
@@ -465,6 +469,7 @@ const ChatbotView = () => {
             <option value="groq">Groq (Llama 3.1)</option>
             <option value="openai">OpenAI (GPT-4o)</option>
             <option value="deepseek">DeepSeek (V3)</option>
+            <option value="qwen">Alibaba (Qwen Max)</option>
           </select>
         </div>
       </div>
@@ -645,6 +650,7 @@ function App() {
         else if (newLog.model_name && newLog.model_name.includes('llama')) matchedNodeId = 'groq';
         else if (newLog.model_name && newLog.model_name.includes('gpt')) matchedNodeId = 'openai';
         else if (newLog.model_name && newLog.model_name.includes('deepseek')) matchedNodeId = 'deepseek';
+        else if (newLog.model_name && newLog.model_name.includes('qwen')) matchedNodeId = 'qwen';
         else if (newLog.model_name && newLog.model_name.includes('gemini')) matchedNodeId = 'gemini';
         
         const aiModel = AI_MODELS.find(m => m.id === matchedNodeId);
