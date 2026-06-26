@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -76,9 +77,11 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
 
     const { model, messages, temperature } = req.body;
     
-    console.log(`[9Router] Received request. Routing to Gemini AI...`);
+    // Auto Routing (Prototype): Default to Gemini
+    const targetModel = model === 'auto' ? 'gemini' : (model || 'gemini');
+    console.log(`[9Router] Received request. Routing to ${targetModel.toUpperCase()} AI...`);
     
-    let apiKey = process.env.GEMINI_API_KEY;
+    let apiKey = process.env[`${targetModel.toUpperCase()}_API_KEY`];
 
     // Fetch key from Supabase if available (Secure DB Storage)
     if (supabase) {
@@ -86,100 +89,140 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
         const { data, error } = await supabase
           .from('api_settings')
           .select('api_key')
-          .eq('provider', 'gemini')
+          .eq('provider', targetModel)
           .single();
         
         if (data && data.api_key) {
           apiKey = data.api_key;
         }
       } catch (dbErr) {
-        console.warn(`[9Router] Could not fetch Gemini API Key from Supabase, falling back to .env`);
+        console.warn(`[9Router] Could not fetch ${targetModel} API Key from Supabase, falling back to .env`);
       }
     }
 
-    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+    if (!apiKey || apiKey === `your_${targetModel}_api_key_here`) {
       return res.status(401).json({
-        error: { message: "API Key Gemini belum dikonfigurasi di server 9Router (.env). Buka file .env dan masukkan API Key Anda, atau kirimkan via header x-gemini-api-key." }
+        error: { message: `API Key ${targetModel} belum dikonfigurasi. Masukkan via Dashboard atau .env.` }
       });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    let systemInstruction = "";
-    let lastUserMessage = "";
-
-    messages.forEach(msg => {
-      if (msg.role === 'system') {
-        systemInstruction += msg.content + " ";
-      } else if (msg.role === 'user') {
-        lastUserMessage = msg.content;
-      }
-    });
-
-    let rawHistory = messages
-      .filter(m => m.role !== 'system')
-      .map(m => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.content }]
-      }));
-
-    // Google Gemini Strict Compliance: History MUST start with 'user' and MUST strictly alternate.
-    let chatHistory = [];
-    let expectedRole = 'user';
-
-    for (const msg of rawHistory) {
-      if (msg.role === expectedRole) {
-        chatHistory.push(msg);
-        expectedRole = expectedRole === 'user' ? 'model' : 'user';
-      } else if (chatHistory.length > 0) {
-        // If sequence breaks (e.g. two 'user' in a row), merge them into the previous message
-        chatHistory[chatHistory.length - 1].parts[0].text += "\n\n" + msg.parts[0].text;
-      }
-    }
-
-    const geminiModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemInstruction.trim() || undefined
-    });
-
-    // Remove the last message from history to send it as the prompt
-    if (chatHistory.length > 0) {
-      chatHistory.pop(); 
-    }
-
-    const chat = geminiModel.startChat({
-      history: chatHistory,
-      generationConfig: {
-        temperature: temperature || 0.7,
-      }
-    });
+    let aiReply = "";
+    let promptTokens = 0;
+    let completionTokens = 0;
+    let totalTokens = 0;
+    let estimatedCost = 0;
+    let usedModelName = "";
 
     const startTime = Date.now();
-    const result = await chat.sendMessage(lastUserMessage);
-    const aiReply = result.response.text();
-    const latency = Date.now() - startTime;
 
-    console.log(`[9Router] Successfully received response from Gemini.`);
+    // --- GEMINI LOGIC ---
+    if (targetModel === 'gemini') {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      let systemInstruction = "";
+      let lastUserMessage = "";
+
+      messages.forEach(msg => {
+        if (msg.role === 'system') {
+          systemInstruction += msg.content + " ";
+        } else if (msg.role === 'user') {
+          lastUserMessage = msg.content;
+        }
+      });
+
+      let rawHistory = messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }]
+        }));
+
+      let chatHistory = [];
+      let expectedRole = 'user';
+      for (const msg of rawHistory) {
+        if (msg.role === expectedRole) {
+          chatHistory.push(msg);
+          expectedRole = expectedRole === 'user' ? 'model' : 'user';
+        } else if (chatHistory.length > 0) {
+          chatHistory[chatHistory.length - 1].parts[0].text += "\n\n" + msg.parts[0].text;
+        }
+      }
+
+      usedModelName = "gemini-2.5-flash";
+      const geminiModel = genAI.getGenerativeModel({
+        model: usedModelName,
+        systemInstruction: systemInstruction.trim() || undefined
+      });
+
+      if (chatHistory.length > 0) {
+        chatHistory.pop(); 
+      }
+
+      const chat = geminiModel.startChat({
+        history: chatHistory,
+        generationConfig: { temperature: temperature || 0.7 }
+      });
+
+      const result = await chat.sendMessage(lastUserMessage);
+      aiReply = result.response.text();
+      
+      const usage = result.response.usageMetadata || {};
+      promptTokens = usage.promptTokenCount || 0;
+      completionTokens = usage.candidatesTokenCount || 0;
+      totalTokens = usage.totalTokenCount || 0;
+      estimatedCost = (promptTokens / 1000000 * 3.50) + (completionTokens / 1000000 * 10.50); // Flash pricing
+    } 
+    // --- CLAUDE LOGIC ---
+    else if (targetModel === 'claude') {
+      usedModelName = "claude-3-5-sonnet-20240620";
+      const anthropic = new Anthropic({ apiKey: apiKey });
+      
+      let systemInstruction = "";
+      const anthropicMessages = [];
+      
+      messages.forEach(msg => {
+        if (msg.role === 'system') {
+          systemInstruction += msg.content + "\n";
+        } else {
+          // Anthropic roles: 'user' or 'assistant'
+          anthropicMessages.push({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          });
+        }
+      });
+
+      const response = await anthropic.messages.create({
+        model: usedModelName,
+        max_tokens: 4096,
+        temperature: temperature || 0.7,
+        system: systemInstruction.trim() || undefined,
+        messages: anthropicMessages
+      });
+
+      aiReply = response.content[0].text;
+      promptTokens = response.usage.input_tokens || 0;
+      completionTokens = response.usage.output_tokens || 0;
+      totalTokens = promptTokens + completionTokens;
+      estimatedCost = (promptTokens / 1000000 * 3.00) + (completionTokens / 1000000 * 15.00); // Sonnet pricing
+    } else {
+      throw new Error(`Unsupported model: ${targetModel}`);
+    }
+
+    const latency = Date.now() - startTime;
+    console.log(`[9Router] Successfully received response from ${targetModel.toUpperCase()}.`);
     
     // Log usage to Supabase
     if (supabase) {
       try {
-        const usage = result.response.usageMetadata || {};
-        const promptTokens = usage.promptTokenCount || 0;
-        const completionTokens = usage.candidatesTokenCount || 0;
-        const totalTokens = usage.totalTokenCount || 0;
-        
-        const estimatedCost = (promptTokens / 1000000 * 3.50) + (completionTokens / 1000000 * 10.50);
-
         await supabase.from('api_logs').insert([{
-          model_name: 'gemini-2.5-flash',
+          model_name: usedModelName,
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           total_tokens: totalTokens,
           estimated_cost: estimatedCost,
           latency_ms: latency,
           status_code: 200,
-          payload: lastUserMessage
+          payload: messages[messages.length - 1].content // log last user message
         }]);
         console.log(`[9Router] Logged usage: ${totalTokens} tokens, Cost: $${estimatedCost.toFixed(6)}`);
       } catch (logErr) {
@@ -203,7 +246,7 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
     console.error(`[9Router Error]`, error.message);
     res.status(500).json({
       error: {
-        message: "Gagal terhubung ke Gemini AI. Periksa API Key Anda.",
+        message: `Gagal terhubung ke AI. Periksa API Key Anda.`,
         details: error.message
       }
     });

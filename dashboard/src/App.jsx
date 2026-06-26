@@ -375,6 +375,7 @@ const ChatbotView = () => {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('auto');
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -392,7 +393,7 @@ const ChatbotView = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gemini',
+          model: selectedModel,
           messages: [{ role: 'user', content: input }],
           temperature: 0.7
         })
@@ -407,11 +408,17 @@ const ChatbotView = () => {
         aiText = `Error: ${data.error.message}`;
       }
 
+      // Determine which model replied based on the response model string, or fallback to selectedModel
+      let respondedModelId = 'gemini';
+      if (data.model && data.model.includes('claude')) respondedModelId = 'claude';
+      else if (data.model && data.model.includes('gemini')) respondedModelId = 'gemini';
+      else if (selectedModel === 'claude') respondedModelId = 'claude';
+
       const aiMsg = { 
         id: Date.now() + 1, 
         role: 'ai', 
         text: aiText, 
-        model: AI_MODELS.find(m => m.id === 'gemini') || { name: 'Gemini', color: '#3b82f6' }
+        model: AI_MODELS.find(m => m.id === respondedModelId) || { name: 'AI', color: '#3b82f6' }
       };
       
       setMessages(prev => [...prev, aiMsg]);
@@ -430,9 +437,23 @@ const ChatbotView = () => {
 
   return (
     <div className="view-content chatbot-view">
-      <div className="view-header">
-        <h2>AI Playground</h2>
-        <p>Test prompts and see how 9Router handles them in real-time.</p>
+      <div className="view-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h2>AI Playground</h2>
+          <p>Test prompts and see how 9Router handles them in real-time.</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ color: '#94a3b8', fontSize: '14px' }}>Target AI:</label>
+          <select 
+            value={selectedModel} 
+            onChange={(e) => setSelectedModel(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1e293b', color: '#fff', border: '1px solid #334155', outline: 'none' }}
+          >
+            <option value="auto">Auto (9Router Decide)</option>
+            <option value="gemini">Gemini 1.5 Flash</option>
+            <option value="claude">Claude 3.5 Sonnet</option>
+          </select>
+        </div>
       </div>
       
       <div className="chat-container">
