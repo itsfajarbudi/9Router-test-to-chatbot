@@ -384,14 +384,25 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
 
     // 6. Pass the response back to the client in OpenAI format
     res.json({
+      id: `chatcmpl-${Date.now()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: successfulProvider,
       choices: [
         {
+          index: 0,
           message: {
             role: "assistant",
             content: result.aiReply
-          }
+          },
+          finish_reason: "stop"
         }
-      ]
+      ],
+      usage: {
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        total_tokens: result.totalTokens
+      }
     });
 
   } catch (error) {
