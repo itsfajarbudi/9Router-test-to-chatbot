@@ -197,15 +197,42 @@ const PROVIDERS = {
       temperature: temperature || 0.7,
     });
 
-    const promptTokens = response.usage?.prompt_tokens || 0;
-    const completionTokens = response.usage?.completion_tokens || 0;
+    const pT = response.usage?.prompt_tokens || 0;
+    const cT = response.usage?.completion_tokens || 0;
 
     return {
       aiReply: response.choices[0]?.message?.content || "",
-      promptTokens,
-      completionTokens,
+      promptTokens: pT,
+      completionTokens: cT,
       totalTokens: response.usage?.total_tokens || 0,
-      estimatedCost: (promptTokens / 1000000 * 5.00) + (completionTokens / 1000000 * 15.00),
+      estimatedCost: (pT / 1000000 * 5.00) + (cT / 1000000 * 15.00),
+      usedModelName
+    };
+  },
+
+  deepseek: async ({ apiKey, messages, temperature }) => {
+    const openai = new OpenAI({ apiKey, baseURL: 'https://api.deepseek.com' });
+    const deepseekMessages = messages.map(msg => ({
+      role: msg.role === 'model' ? 'assistant' : msg.role,
+      content: msg.content
+    }));
+
+    const usedModelName = "deepseek-chat";
+    const response = await openai.chat.completions.create({
+      messages: deepseekMessages,
+      model: usedModelName,
+      temperature: temperature || 0.7,
+    });
+
+    const pT = response.usage?.prompt_tokens || 0;
+    const cT = response.usage?.completion_tokens || 0;
+
+    return {
+      aiReply: response.choices[0]?.message?.content || "",
+      promptTokens: pT,
+      completionTokens: cT,
+      totalTokens: response.usage?.total_tokens || 0,
+      estimatedCost: (pT / 1000000 * 0.14) + (cT / 1000000 * 0.28),
       usedModelName
     };
   }

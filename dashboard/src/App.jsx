@@ -10,7 +10,11 @@ import {
   CheckCircle2,
   Zap,
   Bot,
-  Send
+  Send,
+  BrainCircuit,
+  Sparkles,
+  Cpu,
+  Atom
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line
@@ -19,15 +23,11 @@ import './App.css';
 import { supabase } from './supabaseClient';
 
 const AI_MODELS = [
-  { id: 'openai', name: 'OpenAI GPT-4o', color: '#10b981' },
-  { id: 'gemini', name: 'Gemini 1.5 Pro', color: '#3b82f6' },
-  { id: 'claude', name: 'Claude 3.5 Sonnet', color: '#f97316' },
-  { id: 'llama', name: 'Llama 3', color: '#8b5cf6' },
-  { id: 'groq', name: 'Groq (Llama 3)', color: '#f5333f' },
-  { id: 'mistral', name: 'Mistral Large', color: '#eab308' },
-  { id: 'cohere', name: 'Cohere Command', color: '#ec4899' },
-  { id: 'qwen', name: 'Qwen Max', color: '#06b6d4' },
-  { id: 'yi', name: 'Yi Large', color: '#ef4444' }
+  { id: 'openai', name: 'OpenAI GPT-4o', color: '#10b981', Icon: BrainCircuit },
+  { id: 'gemini', name: 'Gemini 1.5 Flash', color: '#3b82f6', Icon: Sparkles },
+  { id: 'claude', name: 'Claude 3.5 Sonnet', color: '#f97316', Icon: Cpu },
+  { id: 'groq', name: 'Groq (Llama 3.1)', color: '#f5333f', Icon: Zap },
+  { id: 'deepseek', name: 'DeepSeek (V3)', color: '#4d6bfe', Icon: Atom }
 ];
 
 const MOCK_CHART_DATA = [
@@ -145,7 +145,9 @@ const RadialGraph = ({ activeNode }) => {
               <text y="-35" textAnchor="middle" fill={isActive ? model.color : "#94a3b8"} fontSize="12" fontWeight={isActive ? "700" : "500"} filter={isActive ? "url(#glow)" : ""}>
                 {model.name}
               </text>
-              <circle r="6" fill={isActive ? model.color : "#64748b"} />
+              <foreignObject x="-10" y="-10" width="20" height="20">
+                <model.Icon size={20} color={isActive ? model.color : "#64748b"} />
+              </foreignObject>
             </g>
           );
         })}
@@ -416,9 +418,11 @@ const ChatbotView = () => {
       else if (data.model && data.model.includes('gemini')) respondedModelId = 'gemini';
       else if (data.model && data.model.includes('llama')) respondedModelId = 'groq';
       else if (data.model && data.model.includes('gpt')) respondedModelId = 'openai';
+      else if (data.model && data.model.includes('deepseek')) respondedModelId = 'deepseek';
       else if (selectedModel === 'claude') respondedModelId = 'claude';
       else if (selectedModel === 'groq') respondedModelId = 'groq';
       else if (selectedModel === 'openai') respondedModelId = 'openai';
+      else if (selectedModel === 'deepseek') respondedModelId = 'deepseek';
 
       const aiMsg = { 
         id: Date.now() + 1, 
@@ -458,8 +462,9 @@ const ChatbotView = () => {
             <option value="auto">Auto (9Router Decide)</option>
             <option value="gemini">Gemini 1.5 Flash</option>
             <option value="claude">Claude 3.5 Sonnet</option>
-            <option value="groq">Groq (Llama 3 8B)</option>
+            <option value="groq">Groq (Llama 3.1)</option>
             <option value="openai">OpenAI (GPT-4o)</option>
+            <option value="deepseek">DeepSeek (V3)</option>
           </select>
         </div>
       </div>
@@ -639,6 +644,7 @@ function App() {
         if (newLog.model_name && newLog.model_name.includes('claude')) matchedNodeId = 'claude';
         else if (newLog.model_name && newLog.model_name.includes('llama')) matchedNodeId = 'groq';
         else if (newLog.model_name && newLog.model_name.includes('gpt')) matchedNodeId = 'openai';
+        else if (newLog.model_name && newLog.model_name.includes('deepseek')) matchedNodeId = 'deepseek';
         else if (newLog.model_name && newLog.model_name.includes('gemini')) matchedNodeId = 'gemini';
         
         const aiModel = AI_MODELS.find(m => m.id === matchedNodeId);
