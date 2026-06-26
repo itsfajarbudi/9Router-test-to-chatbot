@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
@@ -26,15 +27,24 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function(origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests)
+    // allow requests with no origin (like mobile apps or curl requests) only if they provide the valid auth token later.
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(null, true); // Allow all for now just to avoid blockages, or specifically restrict. Let's restrict it later if requested, for now we will just allow all or the specific ones. 
+      return callback(new Error('Access blocked by CORS policy. Origin not allowed.'), false);
     }
     return callback(null, true);
   }
 }));
 app.use(express.json());
+
+// Rate Limiter
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // limit each IP to 30 requests per windowMs
+  message: { error: { message: "Terlalu banyak permintaan dari IP ini, silakan coba lagi setelah 15 menit." } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Root endpoint for friendly greeting (so it's not white screen)
 app.get('/', (req, res) => {
@@ -54,17 +64,42 @@ app.get('/health', (req, res) => {
 });
 
 // OpenAI compatible endpoint
-app.post('/v1/chat/completions', async (req, res) => {
+app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
   try {
+    // 1. Validate Authentication
+    const authHeader = req.headers.authorization;
+    const validToken = process.env.ROUTER_API_KEY || 'portofolio-fajar';
+    if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.split(' ')[1] !== validToken) {
+      console.warn(`[9Router Security] Blocked unauthorized request from IP: ${req.ip}`);
+      return res.status(401).json({ error: { message: "Unauthorized. Invalid or missing API Key." } });
+    }
+
     const { model, messages, temperature } = req.body;
     
     console.log(`[9Router] Received request. Routing to Gemini AI...`);
     
-    const apiKey = process.env.GEMINI_API_KEY;
+    let apiKey = process.env.GEMINI_API_KEY;
+
+    // Fetch key from Supabase if available (Secure DB Storage)
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('api_settings')
+          .select('api_key')
+          .eq('provider', 'gemini')
+          .single();
+        
+        if (data && data.api_key) {
+          apiKey = data.api_key;
+        }
+      } catch (dbErr) {
+        console.warn(`[9Router] Could not fetch Gemini API Key from Supabase, falling back to .env`);
+      }
+    }
 
     if (!apiKey || apiKey === 'your_gemini_api_key_here') {
       return res.status(401).json({
-        error: { message: "API Key Gemini belum dikonfigurasi di server 9Router (.env). Buka file .env dan masukkan API Key Anda." }
+        error: { message: "API Key Gemini belum dikonfigurasi di server 9Router (.env). Buka file .env dan masukkan API Key Anda, atau kirimkan via header x-gemini-api-key." }
       });
     }
 

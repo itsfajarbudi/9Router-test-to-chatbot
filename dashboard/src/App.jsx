@@ -167,7 +167,7 @@ const DashboardView = ({ totalTokens, totalCost, activeNode }) => (
       </div>
       <div className="metric-box">
         <p>Estimated Cost</p>
-        <h3 className="success">${totalCost.toFixed(6)}</h3>
+        <h3 className="success">Rp {(totalCost * 16200).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</h3>
       </div>
       <div className="metric-box">
         <p>Active Model (Ping)</p>
@@ -182,39 +182,78 @@ const DashboardView = ({ totalTokens, totalCost, activeNode }) => (
   </div>
 );
 
-const ApiKeysView = ({ apiKeys, setApiKeys }) => (
-  <div className="view-content api-keys-view">
-    <div className="view-header">
-      <h2>Provider API Keys</h2>
-      <p>Manage your keys securely. 9Router uses these to forward your requests.</p>
+const ApiKeysView = ({ apiKeys, setApiKeys }) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    // Load from Supabase
+    const loadKeys = async () => {
+      const { data, error } = await supabase.from('api_settings').select('*');
+      if (data && !error) {
+        const loadedKeys = {};
+        data.forEach(row => {
+          loadedKeys[row.provider] = row.api_key;
+        });
+        setApiKeys(loadedKeys);
+      }
+    };
+    loadKeys();
+  }, [setApiKeys]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Upsert keys to Supabase api_settings table
+      const upsertData = Object.keys(apiKeys).map(provider => ({
+        provider: provider,
+        api_key: apiKeys[provider]
+      }));
       
-      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '8px', color: '#60a5fa' }}>
-        <strong>Important for Online Deployment (Vercel):</strong><br/>
-        Because Vercel is a serverless platform, saving keys here will only work for local testing. To apply your API key to your live online backend, please copy and paste your Gemini API Key into your <strong>Vercel Project Settings &gt; Environment Variables</strong> under the name <code>GEMINI_API_KEY</code>.
-      </div>
-    </div>
-    <div className="keys-grid">
-      {AI_MODELS.map(model => (
-        <div key={model.id} className="key-card">
-          <div className="key-card-header">
-            <span className="key-color-dot" style={{ backgroundColor: model.color }}></span>
-            <h4>{model.name}</h4>
-          </div>
-          <input
-            type="password"
-            placeholder={`Enter ${model.name} API Key...`}
-            className="key-input"
-            value={apiKeys[model.id] || ''}
-            onChange={(e) => setApiKeys({ ...apiKeys, [model.id]: e.target.value })}
-          />
+      const { error } = await supabase.from('api_settings').upsert(upsertData, { onConflict: 'provider' });
+      if (error) throw error;
+      
+      alert('API Keys berhasil disimpan dengan aman ke Database Supabase!');
+    } catch (err) {
+      alert('Gagal menyimpan API Keys: Pastikan Anda telah membuat tabel "api_settings" di Supabase. Error: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="view-content api-keys-view">
+      <div className="view-header">
+        <h2>Provider API Keys</h2>
+        <p>Manage your keys securely. 9Router uses these to forward your requests.</p>
+        
+        <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', borderRadius: '8px', color: '#34d399' }}>
+          <strong>Keamanan Database:</strong><br/>
+          Key sekarang disimpan langsung ke Database Supabase. Backend Vercel Anda akan membaca key dari Supabase secara langsung sehingga jauh lebih aman daripada Local Storage.
         </div>
-      ))}
+      </div>
+      <div className="keys-grid">
+        {AI_MODELS.map(model => (
+          <div key={model.id} className="key-card">
+            <div className="key-card-header">
+              <span className="key-color-dot" style={{ backgroundColor: model.color }}></span>
+              <h4>{model.name}</h4>
+            </div>
+            <input
+              type="password"
+              placeholder={`Enter ${model.name} API Key...`}
+              className="key-input"
+              value={apiKeys[model.id] || ''}
+              onChange={(e) => setApiKeys({ ...apiKeys, [model.id]: e.target.value })}
+            />
+          </div>
+        ))}
+      </div>
+      <button className="save-btn" onClick={handleSave} disabled={isSaving}>
+        <Save size={18} /> {isSaving ? 'Menyimpan...' : 'Save Configuration'}
+      </button>
     </div>
-    <button className="save-btn" onClick={() => alert('For local testing, API keys are saved temporarily. For your live Vercel server, please paste them in Vercel Settings as instructed above.')}>
-      <Save size={18} /> Save Configuration
-    </button>
-  </div>
-);
+  );
+};
 
 const RoutingView = ({ routingStrategy, setRoutingStrategy }) => (
   <div className="view-content routing-view">
