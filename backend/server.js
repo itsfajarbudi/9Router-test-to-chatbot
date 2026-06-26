@@ -292,7 +292,7 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
     else targetProvider = model; // fallback
 
     // Define Fallback Priority Chain
-    const ALL_PROVIDERS = ['openai', 'gemini', 'groq', 'anthropic', 'deepseek', 'qwen'];
+    const ALL_PROVIDERS = ['gemini', 'groq', 'openai', 'anthropic', 'deepseek', 'qwen'];
     // Reorder so primary is first, then the rest
     const fallbackChain = [targetProvider, ...ALL_PROVIDERS.filter(p => p !== targetProvider)];
 
