@@ -245,7 +245,7 @@ const PROVIDERS = {
       content: msg.content
     }));
 
-    const usedModelName = "qwen3.7-max";
+    const usedModelName = "qwen-plus";
     const response = await openai.chat.completions.create({
       messages: qwenMessages,
       model: usedModelName,
