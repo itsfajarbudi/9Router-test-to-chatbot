@@ -94,7 +94,7 @@ const PROVIDERS = {
     });
 
     if (chatHistory.length > 0) {
-      chatHistory.pop(); 
+      chatHistory.pop();
     }
 
     const chat = geminiModel.startChat({
@@ -107,7 +107,7 @@ const PROVIDERS = {
     const usage = result.response.usageMetadata || {};
     const promptTokens = usage.promptTokenCount || 0;
     const completionTokens = usage.candidatesTokenCount || 0;
-    
+
     return {
       aiReply,
       promptTokens,
@@ -122,7 +122,7 @@ const PROVIDERS = {
     const anthropic = new Anthropic({ apiKey });
     let systemInstruction = "";
     const anthropicMessages = [];
-    
+
     messages.forEach(msg => {
       if (msg.role === 'system') {
         systemInstruction += msg.content + "\n";
@@ -145,7 +145,7 @@ const PROVIDERS = {
 
     const promptTokens = response.usage.input_tokens || 0;
     const completionTokens = response.usage.output_tokens || 0;
-    
+
     return {
       aiReply: response.content[0].text,
       promptTokens,
@@ -172,7 +172,7 @@ const PROVIDERS = {
 
     const promptTokens = response.usage?.prompt_tokens || 0;
     const completionTokens = response.usage?.completion_tokens || 0;
-    
+
     return {
       aiReply: response.choices[0]?.message?.content || "",
       promptTokens,
@@ -279,74 +279,90 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
     }
 
     const { model, messages, temperature } = req.body;
-    
+
     // Auto Routing & Smart Mapping
     let targetProvider = 'gemini';
     if (model === 'auto' || !model) targetProvider = 'gemini';
     else if (model.includes('claude') || model === 'anthropic') targetProvider = 'anthropic';
     else if (model.includes('gemini')) targetProvider = 'gemini';
     else if (model.includes('llama') || model === 'groq') targetProvider = 'groq';
-    else if (model.includes('gpt') || model === 'openai') targetProvider = 'groq'; // Force reroute to Groq
+    else if (model.includes('gpt') || model === 'openai') targetProvider = 'openai';
     else if (model.includes('deepseek')) targetProvider = 'deepseek';
     else if (model.includes('qwen')) targetProvider = 'qwen';
     else targetProvider = model; // fallback
-    
-    console.log(`[9Router] Received request for model '${model}'. Routing to ${targetProvider.toUpperCase()} AI provider...`);
-    
-    // 2. Select the strategy handler
-    const handler = PROVIDERS[targetProvider];
-    if (!handler) {
-      return res.status(400).json({ error: { message: `Unsupported model/provider: ${targetProvider}. Silakan tambahkan logic di PROVIDERS.` } });
-    }
 
-    // 3. Get API Key
-    let apiKey = process.env[`${targetProvider.toUpperCase()}_API_KEY`];
+    // Define Fallback Priority Chain
+    const ALL_PROVIDERS = ['openai', 'gemini', 'groq', 'anthropic', 'deepseek', 'qwen'];
+    // Reorder so primary is first, then the rest
+    const fallbackChain = [targetProvider, ...ALL_PROVIDERS.filter(p => p !== targetProvider)];
 
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('api_settings')
-          .select('api_key')
-          .eq('provider', targetProvider)
-          .single();
-        
-        if (data && data.api_key) {
-          apiKey = data.api_key;
+    console.log(`[9Router] Received request for model '${model}'. Primary target: ${targetProvider.toUpperCase()}`);
+
+    let result = null;
+    let successfulProvider = null;
+    let lastError = null;
+    let latency = 0;
+
+    // Execute Fallback Loop
+    for (const currentProvider of fallbackChain) {
+      const handler = PROVIDERS[currentProvider];
+      if (!handler) {
+        lastError = { status: 400, message: `Unsupported provider: ${currentProvider}`, type: "configuration_error" };
+        continue;
+      }
+
+      // Get API Key
+      let apiKey = process.env[`${currentProvider.toUpperCase()}_API_KEY`];
+
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('api_settings')
+            .select('api_key')
+            .eq('provider', currentProvider)
+            .single();
+          if (data && data.api_key) apiKey = data.api_key;
+        } catch (dbErr) {
+          // ignore
         }
-      } catch (dbErr) {
-        console.warn(`[9Router] Could not fetch ${targetProvider} API Key from Supabase, falling back to .env`);
+      }
+
+      if (!apiKey || apiKey === `your_${currentProvider}_api_key_here`) {
+        console.warn(`[9Router] Skipping ${currentProvider.toUpperCase()} (No API Key configured).`);
+        lastError = { status: 401, message: `API Key for ${currentProvider.toUpperCase()} is missing.`, type: "configuration_error", provider: currentProvider };
+        continue;
+      }
+
+      console.log(`[9Router] Attempting request via ${currentProvider.toUpperCase()}...`);
+      const startTime = Date.now();
+
+      try {
+        result = await handler({ apiKey, messages, temperature });
+        latency = Date.now() - startTime;
+        successfulProvider = currentProvider;
+        console.log(`[9Router] SUCCESS: Received response from ${currentProvider.toUpperCase()} in ${latency}ms.`);
+        break; // Break the loop on success!
+      } catch (apiError) {
+        console.warn(`[9Router] FAILED: ${currentProvider.toUpperCase()} encountered an error:`, apiError.message);
+        const errorMsg = apiError.error?.error?.message || apiError.error?.message || apiError.message || "Unknown Provider Error";
+        lastError = {
+          status: apiError.status || 500,
+          message: errorMsg,
+          type: "provider_error",
+          provider: currentProvider
+        };
+        // Continue to the next provider in the chain...
       }
     }
 
-    if (!apiKey || apiKey === `your_${targetProvider}_api_key_here`) {
-      return res.status(401).json({
-        error: { message: `API Key untuk provider ${targetProvider.toUpperCase()} belum dikonfigurasi. Masukkan via Dashboard.` }
+    // If ALL providers in the chain failed
+    if (!successfulProvider || !result) {
+      console.error(`[9Router] ALL Fallbacks Exhausted. Returning last error from ${lastError?.provider || 'Unknown'}.`);
+      return res.status(lastError?.status || 500).json({
+        error: lastError || { message: "All AI providers failed.", type: "server_error" }
       });
     }
 
-    const startTime = Date.now();
-    let result;
-    
-    // 4. Process Request via Provider Strategy
-    try {
-      result = await handler({ apiKey, messages, temperature });
-    } catch (apiError) {
-      // PROPER ERROR PASS-THROUGH: Pass actual API errors to client
-      console.error(`[9Router Provider Error - ${targetProvider}] `, apiError.message);
-      
-      const errorMsg = apiError.error?.error?.message || apiError.error?.message || apiError.message || "Unknown Provider Error";
-      return res.status(apiError.status || 500).json({
-        error: {
-          message: errorMsg,
-          type: "provider_error",
-          provider: targetProvider
-        }
-      });
-    }
-
-    const latency = Date.now() - startTime;
-    console.log(`[9Router] Successfully received response from ${targetProvider.toUpperCase()}.`);
-    
     // 5. Log usage to Supabase
     if (supabase) {
       try {
@@ -365,7 +381,7 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
         console.error(`[9Router] Failed to log to Supabase:`, logErr);
       }
     }
-    
+
     // 6. Pass the response back to the client in OpenAI format
     res.json({
       choices: [
