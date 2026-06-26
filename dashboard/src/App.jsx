@@ -415,8 +415,10 @@ const ChatbotView = () => {
       if (data.model && data.model.includes('claude')) respondedModelId = 'claude';
       else if (data.model && data.model.includes('gemini')) respondedModelId = 'gemini';
       else if (data.model && data.model.includes('llama')) respondedModelId = 'groq';
+      else if (data.model && data.model.includes('gpt')) respondedModelId = 'openai';
       else if (selectedModel === 'claude') respondedModelId = 'claude';
       else if (selectedModel === 'groq') respondedModelId = 'groq';
+      else if (selectedModel === 'openai') respondedModelId = 'openai';
 
       const aiMsg = { 
         id: Date.now() + 1, 
@@ -457,6 +459,7 @@ const ChatbotView = () => {
             <option value="gemini">Gemini 1.5 Flash</option>
             <option value="claude">Claude 3.5 Sonnet</option>
             <option value="groq">Groq (Llama 3 8B)</option>
+            <option value="openai">OpenAI (GPT-4o)</option>
           </select>
         </div>
       </div>
@@ -635,6 +638,7 @@ function App() {
         let matchedNodeId = 'gemini';
         if (newLog.model_name && newLog.model_name.includes('claude')) matchedNodeId = 'claude';
         else if (newLog.model_name && newLog.model_name.includes('llama')) matchedNodeId = 'groq';
+        else if (newLog.model_name && newLog.model_name.includes('gpt')) matchedNodeId = 'openai';
         else if (newLog.model_name && newLog.model_name.includes('gemini')) matchedNodeId = 'gemini';
         
         const aiModel = AI_MODELS.find(m => m.id === matchedNodeId);
