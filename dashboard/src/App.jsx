@@ -305,7 +305,7 @@ const AnalyticsView = () => (
         </div>
       </div>
       <div className="chart-card">
-        <h3>Cost Trend (USD)</h3>
+        <h3>Cost Trend (IDR)</h3>
         <div className="chart-container">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={MOCK_CHART_DATA}>
