@@ -280,38 +280,47 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
 
     const { model, messages, temperature } = req.body;
     
-    // Auto Routing (Prototype): Default to Gemini
-    const targetModel = model === 'auto' ? 'gemini' : (model || 'gemini');
-    console.log(`[9Router] Received request. Routing to ${targetModel.toUpperCase()} AI...`);
+    // Auto Routing & Smart Mapping
+    let targetProvider = 'gemini';
+    if (model === 'auto' || !model) targetProvider = 'gemini';
+    else if (model.includes('claude') || model === 'anthropic') targetProvider = 'anthropic';
+    else if (model.includes('gemini')) targetProvider = 'gemini';
+    else if (model.includes('llama') || model === 'groq') targetProvider = 'groq';
+    else if (model.includes('gpt') || model === 'openai') targetProvider = 'openai';
+    else if (model.includes('deepseek')) targetProvider = 'deepseek';
+    else if (model.includes('qwen')) targetProvider = 'qwen';
+    else targetProvider = model; // fallback
+    
+    console.log(`[9Router] Received request for model '${model}'. Routing to ${targetProvider.toUpperCase()} AI provider...`);
     
     // 2. Select the strategy handler
-    const handler = PROVIDERS[targetModel];
+    const handler = PROVIDERS[targetProvider];
     if (!handler) {
-      return res.status(400).json({ error: { message: `Unsupported model/provider: ${targetModel}. Silakan tambahkan logic di PROVIDERS.` } });
+      return res.status(400).json({ error: { message: `Unsupported model/provider: ${targetProvider}. Silakan tambahkan logic di PROVIDERS.` } });
     }
 
     // 3. Get API Key
-    let apiKey = process.env[`${targetModel.toUpperCase()}_API_KEY`];
+    let apiKey = process.env[`${targetProvider.toUpperCase()}_API_KEY`];
 
     if (supabase) {
       try {
         const { data, error } = await supabase
           .from('api_settings')
           .select('api_key')
-          .eq('provider', targetModel)
+          .eq('provider', targetProvider)
           .single();
         
         if (data && data.api_key) {
           apiKey = data.api_key;
         }
       } catch (dbErr) {
-        console.warn(`[9Router] Could not fetch ${targetModel} API Key from Supabase, falling back to .env`);
+        console.warn(`[9Router] Could not fetch ${targetProvider} API Key from Supabase, falling back to .env`);
       }
     }
 
-    if (!apiKey || apiKey === `your_${targetModel}_api_key_here`) {
+    if (!apiKey || apiKey === `your_${targetProvider}_api_key_here`) {
       return res.status(401).json({
-        error: { message: `API Key untuk provider ${targetModel.toUpperCase()} belum dikonfigurasi. Masukkan via Dashboard.` }
+        error: { message: `API Key untuk provider ${targetProvider.toUpperCase()} belum dikonfigurasi. Masukkan via Dashboard.` }
       });
     }
 
@@ -323,20 +332,20 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
       result = await handler({ apiKey, messages, temperature });
     } catch (apiError) {
       // PROPER ERROR PASS-THROUGH: Pass actual API errors to client
-      console.error(`[9Router Provider Error - ${targetModel}] `, apiError.message);
+      console.error(`[9Router Provider Error - ${targetProvider}] `, apiError.message);
       
       const errorMsg = apiError.error?.error?.message || apiError.error?.message || apiError.message || "Unknown Provider Error";
       return res.status(apiError.status || 500).json({
         error: {
           message: errorMsg,
           type: "provider_error",
-          provider: targetModel
+          provider: targetProvider
         }
       });
     }
 
     const latency = Date.now() - startTime;
-    console.log(`[9Router] Successfully received response from ${targetModel.toUpperCase()}.`);
+    console.log(`[9Router] Successfully received response from ${targetProvider.toUpperCase()}.`);
     
     // 5. Log usage to Supabase
     if (supabase) {
