@@ -6,7 +6,7 @@ async function test() {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "auto",
+      model: "gpt-3.5-turbo",
       messages: [{role: "user", content: "hi"}]
     })
   });

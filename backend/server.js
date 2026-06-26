@@ -286,7 +286,7 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
     else if (model.includes('claude') || model === 'anthropic') targetProvider = 'anthropic';
     else if (model.includes('gemini')) targetProvider = 'gemini';
     else if (model.includes('llama') || model === 'groq') targetProvider = 'groq';
-    else if (model.includes('gpt') || model === 'openai') targetProvider = 'openai';
+    else if (model.includes('gpt') || model === 'openai') targetProvider = 'gemini'; // Force reroute to Gemini
     else if (model.includes('deepseek')) targetProvider = 'deepseek';
     else if (model.includes('qwen')) targetProvider = 'qwen';
     else targetProvider = model; // fallback
