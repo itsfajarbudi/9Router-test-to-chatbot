@@ -3,6 +3,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Anthropic = require('@anthropic-ai/sdk');
+const Groq = require('groq-sdk');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -188,6 +189,28 @@ app.post('/v1/chat/completions', apiLimiter, async (req, res) => {
       completionTokens = response.usage.output_tokens || 0;
       totalTokens = promptTokens + completionTokens;
       estimatedCost = (promptTokens / 1000000 * 3.00) + (completionTokens / 1000000 * 15.00); // Sonnet pricing
+    }
+    // --- GROQ LOGIC ---
+    else if (targetModel === 'groq') {
+      usedModelName = "llama3-8b-8192";
+      const groq = new Groq({ apiKey: apiKey });
+      
+      const groqMessages = messages.map(msg => ({
+        role: msg.role === 'model' ? 'assistant' : msg.role,
+        content: msg.content
+      }));
+
+      const response = await groq.chat.completions.create({
+        messages: groqMessages,
+        model: usedModelName,
+        temperature: temperature || 0.7,
+      });
+
+      aiReply = response.choices[0]?.message?.content || "";
+      promptTokens = response.usage?.prompt_tokens || 0;
+      completionTokens = response.usage?.completion_tokens || 0;
+      totalTokens = response.usage?.total_tokens || 0;
+      estimatedCost = (promptTokens / 1000000 * 0.05) + (completionTokens / 1000000 * 0.08); // Groq 8B pricing
     } else {
       throw new Error(`Unsupported model: ${targetModel}`);
     }

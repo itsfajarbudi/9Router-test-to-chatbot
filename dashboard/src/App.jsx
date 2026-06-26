@@ -23,6 +23,7 @@ const AI_MODELS = [
   { id: 'gemini', name: 'Gemini 1.5 Pro', color: '#3b82f6' },
   { id: 'claude', name: 'Claude 3.5 Sonnet', color: '#f97316' },
   { id: 'llama', name: 'Llama 3', color: '#8b5cf6' },
+  { id: 'groq', name: 'Groq (Llama 3)', color: '#f5333f' },
   { id: 'mistral', name: 'Mistral Large', color: '#eab308' },
   { id: 'cohere', name: 'Cohere Command', color: '#ec4899' },
   { id: 'qwen', name: 'Qwen Max', color: '#06b6d4' },
@@ -413,7 +414,9 @@ const ChatbotView = () => {
       let respondedModelId = 'gemini';
       if (data.model && data.model.includes('claude')) respondedModelId = 'claude';
       else if (data.model && data.model.includes('gemini')) respondedModelId = 'gemini';
+      else if (data.model && data.model.includes('llama')) respondedModelId = 'groq';
       else if (selectedModel === 'claude') respondedModelId = 'claude';
+      else if (selectedModel === 'groq') respondedModelId = 'groq';
 
       const aiMsg = { 
         id: Date.now() + 1, 
@@ -453,6 +456,7 @@ const ChatbotView = () => {
             <option value="auto">Auto (9Router Decide)</option>
             <option value="gemini">Gemini 1.5 Flash</option>
             <option value="claude">Claude 3.5 Sonnet</option>
+            <option value="groq">Groq (Llama 3 8B)</option>
           </select>
         </div>
       </div>
@@ -630,6 +634,7 @@ function App() {
         // Map DB model_name back to AI_MODELS id
         let matchedNodeId = 'gemini';
         if (newLog.model_name && newLog.model_name.includes('claude')) matchedNodeId = 'claude';
+        else if (newLog.model_name && newLog.model_name.includes('llama')) matchedNodeId = 'groq';
         else if (newLog.model_name && newLog.model_name.includes('gemini')) matchedNodeId = 'gemini';
         
         const aiModel = AI_MODELS.find(m => m.id === matchedNodeId);
