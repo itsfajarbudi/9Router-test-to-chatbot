@@ -19,23 +19,7 @@ if (supabaseUrl && supabaseKey) {
   console.log('[9Router] Supabase Analytics Tracking Enabled.');
 }
 
-const allowedOrigins = [
-  'https://itsfajarbudi.github.io',
-  'http://localhost:5173',
-  'http://localhost:8080',
-  'http://localhost:5000'
-];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests) only if they provide the valid auth token later.
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('Access blocked by CORS policy. Origin not allowed.'), false);
-    }
-    return callback(null, true);
-  }
-}));
+app.use(cors()); // Allow all origins for the API
 app.use(express.json());
 
 // Rate Limiter

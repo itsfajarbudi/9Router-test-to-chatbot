@@ -390,7 +390,8 @@ const ChatbotView = () => {
       const response = await fetch('https://9-router-test-to-chatbot.vercel.app/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer portofolio-fajar'
         },
         body: JSON.stringify({
           model: selectedModel,
