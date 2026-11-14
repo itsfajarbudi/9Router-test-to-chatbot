@@ -5,7 +5,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
-const { v4: uuidv4 } = require('uuid');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Anthropic = require('@anthropic-ai/sdk');
 const Groq = require('groq-sdk');
@@ -88,7 +87,7 @@ app.use(express.json({ limit: '100kb' }));
 // Request ID Middleware
 // -------------------------------------------
 app.use((req, _res, next) => {
-  req.requestId = req.headers['x-request-id'] || uuidv4();
+  req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
   next();
 });
 
@@ -1073,13 +1072,15 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log('============================================');
-  console.log(`  🚀 Naroot AI Gateway v${NAROOT_VERSION}`);
-  console.log(`  📡 Web Console: http://localhost:${PORT}`);
-  console.log(`  📋 Models JSON: http://localhost:${PORT}/v1/models`);
-  console.log(`  🔗 Chat Proxy : http://localhost:${PORT}/v1/chat/completions`);
-  console.log('============================================');
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('============================================');
+    console.log(`  🚀 Naroot AI Gateway v${NAROOT_VERSION}`);
+    console.log(`  📡 Web Console: http://localhost:${PORT}`);
+    console.log(`  📋 Models JSON: http://localhost:${PORT}/v1/models`);
+    console.log(`  🔗 Chat Proxy : http://localhost:${PORT}/v1/chat/completions`);
+    console.log('============================================');
+  });
+}
 
 module.exports = app;
